@@ -116,11 +116,13 @@ if __name__ == "__main__":
 
     # TODO: hardcoded values - improve with args
     artifact_id = 'wandb/hf-flax-dalle-mini/model-2021-07-09T21-42-07_dalle_vqgan:latest'
-    project = 'vqgan_f16_16384'
+    project = 'hf-flax-dalle-mini'
+    entity= 'wandb'  # for team groups, default to None
     push_to_hub = True  # I don't think we can easily choose a specific branch
+    model_name = 'vqgan_f16_16384'
 
     # start a run
-    run = wandb.init(project=project)
+    run = wandb.init(project=project, entity=entity)
 
     # download model file
     artifact = run.use_artifact(artifact_id)
@@ -141,13 +143,13 @@ if __name__ == "__main__":
     config_path = 'config_for_conversion/config.json'
 
     # convert model
-    model = convert_model(config_path, model_path, project)
+    model = convert_model(config_path, model_path, model_name)
 
     # log model
-    artifact_jax = wandb.Artifact(name=f"model-{run.id}", type="model")
-    artifact_jax.add_dir(project)
+    artifact_jax = wandb.Artifact(name=f"vqgan_jax-{run.id}", type="vqgan_jax")
+    artifact_jax.add_dir(model_name)
     run.log_artifact(artifact_jax)
 
     # push to hub
     if push_to_hub:
-        model.push_to_hub(project)
+        model.push_to_hub(f'jax_{model_name}')  # BUG: does not work with just "model_name" (issue with same name directory?)

@@ -1,0 +1,5 @@
+pytorch-lightning
+flax
+transformers
+omegaconf==2.0.0
+wandb
