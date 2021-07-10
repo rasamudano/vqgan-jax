@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 import jax.numpy as jnp
 from flax.traverse_util import flatten_dict, unflatten_dict
@@ -8,6 +9,7 @@ import torch
 from modeling_flax_vqgan import VQModel
 from configuration_vqgan import VQGANConfig
 
+import wandb
 
 regex = r"\w+[.]\d+"
 
@@ -105,5 +107,47 @@ def convert_model(config_path, pt_state_dict_path, save_path):
         state_dict[renamed_key] = state_dict.pop(key)
 
     state = convert_pytorch_state_dict_to_flax(state_dict, model)
-    model.params = unflatten_dict(state)
+    model.params = state
     model.save_pretrained(save_path)
+    return model
+
+
+if __name__ == "__main__":
+
+    # TODO: hardcoded values - improve with args
+    artifact_id = 'wandb/hf-flax-dalle-mini/model-2021-07-09T21-42-07_dalle_vqgan:latest'
+    project = 'vqgan_f16_16384'
+    push_to_hub = True  # I don't think we can easily choose a specific branch
+
+    # start a run
+    run = wandb.init(project=project)
+
+    # download model file
+    artifact = run.use_artifact(artifact_id)
+    artifact_dir = artifact.download()
+    model_path = Path(artifact_dir) / 'model.ckpt'
+
+    # set up config
+    config = VQGANConfig()
+
+    # our n_embed is different than the defaults
+    # TODO:
+    # ideally we shoud have logged our config file during training so we can recover parameters
+    # however we would have to handle potential different naming, etc
+    config.n_embed = 16384
+
+    # save config file
+    config.save_pretrained('config_for_conversion')
+    config_path = 'config_for_conversion/config.json'
+
+    # convert model
+    model = convert_model(config_path, model_path, project)
+
+    # log model
+    artifact_jax = wandb.Artifact(name=f"model-{run.id}", type="model")
+    artifact_jax.add_dir(project)
+    run.log_artifact(artifact_jax)
+
+    # push to hub
+    if push_to_hub:
+        model.push_to_hub(project)
