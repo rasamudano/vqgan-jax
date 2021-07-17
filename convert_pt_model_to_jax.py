@@ -108,7 +108,6 @@ def convert_model(config_path, pt_state_dict_path, save_path):
 
     state = convert_pytorch_state_dict_to_flax(state_dict, model)
     model.params = state
-    model.save_pretrained(save_path)
     return model
 
 
@@ -145,11 +144,12 @@ if __name__ == "__main__":
     # convert model
     model = convert_model(config_path, model_path, model_name)
 
-    # log model
-    artifact_jax = wandb.Artifact(name=f"vqgan_jax-{run.id}", type="vqgan_jax")
-    artifact_jax.add_dir(model_name)
-    run.log_artifact(artifact_jax)
-
     # push to hub
     if push_to_hub:
-        model.push_to_hub(f'jax_{model_name}')  # BUG: does not work with just "model_name" (issue with same name directory?)
+        model.push_to_hub(f'{model_name}', organization="flax-community", use_temp_dir=True)
+
+    # log model on wandb
+    model.save_pretrained('jax_model')
+    artifact_jax = wandb.Artifact(name=f"vqgan_jax-{run.id}", type="vqgan_jax")
+    artifact_jax.add_dir('jax_model')
+    run.log_artifact(artifact_jax)
